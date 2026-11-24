@@ -376,6 +376,37 @@ pub struct Config {
     /// Whether to read settings from [EditorConfig](https://editorconfig.org) files. Defaults to
     /// `true`.
     pub editor_config: bool,
+    /// Dim text outside of the context around the cursor. Disabled by default.
+    pub twilight: TwilightConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
+#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+pub struct TwilightConfig {
+    pub enable: bool,
+    /// Tree-sitter node kinds whose outermost ancestor is kept fully visible.
+    pub expand: Vec<String>,
+}
+
+impl Default for TwilightConfig {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            expand: [
+                "function_declaration",
+                "method_declaration",
+                "func_literal",
+                "function_item",
+                "impl_item",
+                "function_definition",
+                "method_definition",
+                "if_statement",
+                "table_constructor",
+            ]
+            .map(String::from)
+            .to_vec(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
@@ -1035,6 +1066,7 @@ impl Default for Config {
             end_of_line_diagnostics: DiagnosticFilter::Disable,
             clipboard_provider: ClipboardProvider::default(),
             editor_config: true,
+            twilight: TwilightConfig::default(),
         }
     }
 }

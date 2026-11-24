@@ -127,6 +127,15 @@ impl EditorView {
             &text_annotations,
         ));
 
+        if is_focused && config.twilight.enable {
+            overlays.push(Self::twilight_highlights(
+                doc,
+                view,
+                theme,
+                &config.twilight.expand,
+            ));
+        }
+
         Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
 
         if is_focused {
@@ -546,6 +555,27 @@ impl EditorView {
         let pos = doc.selection(view.id).primary().cursor(text);
         let pos = helix_core::match_brackets::find_matching_bracket(syntax, text, pos)?;
         Some(OverlayHighlights::single(highlight, pos..pos + 1))
+    }
+
+    pub fn twilight_highlights(
+        doc: &Document,
+        view: &View,
+        theme: &Theme,
+        expand: &[String],
+    ) -> OverlayHighlights {
+        let text = doc.text().slice(..);
+        let cursor = doc.selection(view.id).primary().cursor(text);
+        let lines = helix_core::twilight::context_lines(text, doc.syntax(), cursor, expand);
+        let context_start = text.line_to_char(lines.start);
+        let context_end = text.line_to_char(lines.end);
+        let highlight = theme
+            .find_highlight_exact("ui.twilight")
+            .unwrap_or_else(|| Theme::rgb_highlight(0x66, 0x66, 0x66));
+        let ranges = [0..context_start, context_end..text.len_chars()]
+            .into_iter()
+            .filter(|range| !range.is_empty())
+            .collect();
+        OverlayHighlights::Homogeneous { highlight, ranges }
     }
 
     pub fn tabstop_highlights(doc: &Document, theme: &Theme) -> Option<OverlayHighlights> {

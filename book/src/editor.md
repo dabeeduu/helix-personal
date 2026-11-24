@@ -19,6 +19,7 @@
 - [`[editor.soft-wrap]` Section](#editorsoft-wrap-section)
 - [`[editor.smart-tab]` Section](#editorsmart-tab-section)
 - [`[editor.inline-diagnostics]` Section](#editorinline-diagnostics-section)
+- [`[editor.twilight]` Section](#editortwilight-section)
 
 ### `[editor]` Section
 
@@ -477,3 +478,18 @@ end-of-line-diagnostics = "hint"
 [editor.inline-diagnostics]
 cursor-line = "warning" # show warnings and errors on the cursorline inline
 ```
+
+### `[editor.twilight]` Section
+
+Dims all text outside the context around the primary cursor in the focused view, similar to
+[twilight.nvim](https://github.com/folke/twilight.nvim). The context is the outermost
+tree-sitter node around the cursor whose kind is listed in `expand`. Without such a node, the
+paragraph (non-blank lines) around the cursor is used. Dimmed text uses the `ui.twilight` theme
+scope.
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `enable` | Enable twilight dimming | `false` |
+| `expand` | Tree-sitter node kinds that define the context | `["function_declaration", "method_declaration", "func_literal", "function_item", "impl_item", "function_definition", "method_definition", "if_statement", "table_constructor"]` |
+
+Toggle it at runtime with `:toggle twilight.enable`.
