@@ -1,64 +1,120 @@
-<div align="center">
+# helix-personal
 
-<h1>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="logo_dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="logo_light.svg">
-  <img alt="Helix" height="128" src="logo_light.svg">
-</picture>
-</h1>
+Personal fork of [Helix](https://github.com/helix-editor/helix) with extra features that
+upstream doesn't have. Based on Helix **25.07.1**; features live as small, isolated commits
+on top of it.
 
-[![Build status](https://github.com/helix-editor/helix/actions/workflows/build.yml/badge.svg)](https://github.com/helix-editor/helix/actions)
-[![GitHub Release](https://img.shields.io/github/v/release/helix-editor/helix)](https://github.com/helix-editor/helix/releases/latest)
-[![Documentation](https://shields.io/badge/-documentation-452859)](https://docs.helix-editor.com/)
-[![GitHub contributors](https://img.shields.io/github/contributors/helix-editor/helix)](https://github.com/helix-editor/helix/graphs/contributors)
-[![Matrix Space](https://img.shields.io/matrix/helix-community:matrix.org)](https://matrix.to/#/#helix-community:matrix.org)
+Helix has no plugin system yet (the Steel PR is still open), so features are implemented
+directly in Rust.
 
-</div>
+## Features
 
-![Screenshot](./screenshot.png)
+| Feature | Config | Summary |
+| ------- | ------ | ------- |
+| [Twilight](#twilight) | `[editor.twilight]` | Dim everything outside the code around the cursor, like [twilight.nvim](https://github.com/folke/twilight.nvim) |
 
-A [Kakoune](https://github.com/mawww/kakoune) / [Neovim](https://github.com/neovim/neovim) inspired editor, written in Rust.
+### Twilight
 
-The editing model is very heavily based on Kakoune; during development I found
-myself agreeing with most of Kakoune's design decisions.
+Dims text outside the context around the primary cursor in the focused view.
 
-For more information, see the [website](https://helix-editor.com) or
-[documentation](https://docs.helix-editor.com/).
+The context is, in order of preference:
 
-All shortcuts/keymaps can be found [in the documentation on the website](https://docs.helix-editor.com/keymap.html).
+1. The **outermost** tree-sitter node around the cursor whose kind is listed in `expand`.
+2. The **paragraph** (consecutive non-blank lines) around the cursor, when no such node
+   exists or the file has no syntax tree.
 
-[Troubleshooting](https://github.com/helix-editor/helix/wiki/Troubleshooting)
+Dimmed text is styled with the `ui.twilight` theme scope. If the theme doesn't define it, a
+grey foreground is used. Selections and diagnostics stay visible inside dimmed areas.
 
-# Features
+```toml
+# config.toml
+[editor.twilight]
+enable = false # default
+expand = [
+  "function_declaration", "method_declaration", "func_literal",   # go
+  "function_item", "impl_item",                                    # rust
+  "function_definition", "method_definition",                      # python, lua, ...
+  "if_statement", "table_constructor",
+]
+```
 
-- Vim-like modal editing
-- Multiple selections
-- Built-in language server support
-- Smart, incremental syntax highlighting and code editing via tree-sitter
+```toml
+# theme
+"ui.twilight" = { fg = "#3d3731", bg = "#161412" } # set bg to the theme background to hide scope colors too
+```
 
-Although it's primarily a terminal-based editor, I am interested in exploring
-a custom renderer (similar to Emacs) using wgpu or skulpin.
+Toggle at runtime with `:toggle twilight.enable`, or bind it:
 
-Note: Only certain languages have indentation definitions at the moment. Check
-`runtime/queries/<lang>/` for `indents.scm`.
+```toml
+[keys.normal.space]
+t = ":toggle twilight.enable"
+```
 
-# Installation
+Differences from twilight.nvim: no `context` line budget and no alpha blending; colors come
+from the theme.
 
-[Installation documentation](https://docs.helix-editor.com/install.html).
+Code: `helix-core/src/twilight.rs` (context detection, with tests),
+`helix-term/src/ui/editor.rs` (`twilight_highlights`), `helix-view/src/editor.rs` (`TwilightConfig`).
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/helix-editor.svg?exclude_unsupported=1)](https://repology.org/project/helix-editor/versions)
+## Install
 
-# Contributing
+Requires `git`, `cargo` and a C compiler.
 
-Contributing guidelines can be found [here](./docs/CONTRIBUTING.md).
+```bash
+git clone git@github.com:dabeeduu/helix-personal.git ~/Documents/helix-twilight
+cd ~/Documents/helix-twilight
+HELIX_DISABLE_AUTO_GRAMMAR_BUILD=1 cargo install --locked --path helix-term
 
-# Getting help
+# hx looks for <binary dir>/runtime, so this only affects the fork's binary
+ln -sfn "$PWD/runtime" ~/.cargo/bin/runtime
 
-Your question might already be answered on the [FAQ](https://github.com/helix-editor/helix/wiki/FAQ).
+# write grammars into the fork's runtime instead of ~/.config/helix/runtime
+CARGO_MANIFEST_DIR=$PWD/helix-term hx --grammar fetch
+CARGO_MANIFEST_DIR=$PWD/helix-term hx --grammar build
+```
 
-Discuss the project on the community [Matrix Space](https://matrix.to/#/#helix-community:matrix.org) (make sure to join `#helix-editor:matrix.org` if you're on a client that doesn't support Matrix Spaces yet).
+Make sure `~/.cargo/bin` comes before the package manager's `hx` in `PATH`.
 
-# Credits
+The `gotmpl` grammar fails to fetch (its upstream repository is gone). Copy `gotmpl.so` from
+an upstream 25.07.1 install into `runtime/grammars/` or ignore it; only Go template files
+are affected.
 
-Thanks to [@jakenvac](https://github.com/jakenvac) for designing the logo!
+My dotfiles wrap all of this in
+[`install-helix-personal`](https://github.com/dabeeduu/dotfiles/blob/main/helix/.config/helix/scripts/install-helix-personal),
+which also updates an existing checkout.
+
+Config caveat: a stock Helix rejects unknown config keys, so don't put `[editor.twilight]`
+in a `config.toml` shared with it. Disabled is the default, so it can be omitted.
+
+## Development
+
+```bash
+export HELIX_DISABLE_AUTO_GRAMMAR_BUILD=1
+cargo test -p helix-core --locked --lib twilight
+cargo fmt --check
+cargo clippy -p helix-core -p helix-view -p helix-term --locked
+```
+
+Tests that parse code need the grammars from the install step.
+
+## Adding a feature
+
+1. Add the code with tests (red, green, refactor).
+2. Document the config in `book/src/` (`editor.md`, `themes.md`, ...).
+3. Add a row to the **Features** table and a section above.
+4. Keep commits focused on one feature, so they stay easy to rebase onto a newer upstream.
+
+## Updating from upstream
+
+```bash
+git remote add upstream https://github.com/helix-editor/helix.git   # once
+git fetch upstream --tags
+git rebase <new-upstream-tag>      # or: git merge <new-upstream-tag>
+```
+
+Then rebuild with the install steps. Update the base version at the top of this file.
+
+## License
+
+[MPL-2.0](./LICENSE), same as Helix. All credit for the editor goes to the
+[Helix contributors](https://github.com/helix-editor/helix/graphs/contributors).
